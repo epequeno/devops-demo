@@ -1,0 +1,48 @@
+# example adapted from:
+# https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/
+# https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+apiVersion: v1
+kind: Service
+metadata:
+  name: litecoin
+  labels:
+    app: litecoin
+spec:
+  clusterIP: None
+  selector:
+    app: litecoin
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: litecoin
+spec:
+  selector:
+    matchLabels:
+      app: litecoin # has to match .spec.template.metadata.labels
+  serviceName: "litecoin"
+  replicas: 1 
+  template:
+    metadata:
+      labels:
+        app: litecoin # has to match .spec.selector.matchLabels
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: litecoin
+        image: epequeno/litecoin:0.18.1
+        volumeMounts:
+        - name: litecoin-data
+          mountPath: /app/data
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "500Mi"
+  volumeClaimTemplates:
+  - metadata:
+      name: litecoin-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi

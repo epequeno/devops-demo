@@ -1,0 +1,37 @@
+# adapted from 
+# https://github.com/epequeno/rusty/blob/5547df8432d7d0f217110bae94927466aa3dd8e9/build.sh
+
+# NOTES
+# this makes some assumptions about the CI and deployment environments which 
+# were not fully tested:
+# - secrets/environment variables are properly configured
+# - an eks cluster exists within an AWS account which can be deployed to
+
+# Room for improvement
+# - verify SHA of all dependencies/downloads
+# - provide travis with a custom container image which has dependencies already installed to pin versions and reduce build/deploy time.
+# - split script into stages to provide more useful information during builds
+
+sudo: required
+language: python
+services:
+  - docker
+
+# install deps
+# https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/
+before_install:
+  - pip install awscli
+  - sudo apt-get update
+  - sudo apt-get install -y apt-transport-https ca-certificates curl
+  - sudo curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
+  - echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+  - sudo apt-get update
+  - sudo apt-get install -y kubectl
+
+script:
+  - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+  - docker build -t litecoin .
+  - docker tag litecoin $DOCKER_USERNAME/litecoin:0.18.1
+  - docker push $DOCKER_USERNAME/litecoin:0.18.1
+  - aws eks --region us-east-1 update-kubeconfig --name prod-cluster
+  - kubectl apply -f litecoin-statefulset.yaml
